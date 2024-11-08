@@ -10,7 +10,7 @@ Telegram Channel: [Vonssy - Code](https://t.me/vonssy_code)
   - Auto Get Account Information
   - Auto Claim Daily Check-In
   - Auto Claim Refferal
-  - Auto Play Tap Tap [y/n]
+  - Auto Play Tap Tap
   - Auto Complete Task
 
 ## Prasyarat
