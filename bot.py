@@ -472,7 +472,7 @@ class MidasRWA:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Tap Tap{Style.RESET_ALL}"
                                 f"{Fore.GREEN+Style.BRIGHT} Is Success {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
                                 f"{Fore.WHITE+Style.BRIGHT} {tap_tap['points']} GM {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}] [ Chances{Style.RESET_ALL}"
                                 f"{Fore.WHITE+Style.BRIGHT} {ticket} Left {Style.RESET_ALL}"
@@ -620,7 +620,7 @@ class MidasRWA:
                         self.log(f"{Fore.CYAN+Style.BRIGHT}-{Style.RESET_ALL}"*75)
                         time.sleep(3)
 
-                seconds = 1800
+                seconds = 21600
                 while seconds > 0:
                     formatted_time = self.format_seconds(seconds)
                     print(
