@@ -55,7 +55,7 @@ class MidasRWA:
     
     def user_register(self, query: str, retries=3):
         url = 'https://api-tg-app.midas.app/api/auth/register'
-        data = json.dumps({'initData':query, 'source':'ref_e3f89236-4c61-445e-81ec-7796d03b4eed'})
+        data = json.dumps({'initData':query, 'source':'ref_b6243c03-25ae-43f0-9667-5defd6c43b9b'})
         headers = {
             **self.headers,
             'Content-Length': str(len(data)),
