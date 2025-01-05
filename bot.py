@@ -1,18 +1,14 @@
-import requests
-import cloudscraper
-import random
-import json
-import os
+from curl_cffi import requests
+from urllib.parse import parse_qs, unquote
+from fake_useragent import FakeUserAgent
 from datetime import datetime
-import time
 from colorama import *
-import pytz
+import time, json, os, random, pytz
 
 wib = pytz.timezone('Asia/Jakarta')
 
 class MidasRWA:
     def __init__(self) -> None:
-        self.scraper = cloudscraper.create_scraper()
         self.headers = {
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -25,8 +21,11 @@ class MidasRWA:
             'Sec-Fetch-Dest': 'empty',
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-site',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0'
+            'User-Agent': FakeUserAgent().random
         }
+        self.source = 'ref_b6243c03-25ae-43f0-9667-5defd6c43b9b'
+        self.proxies = []
+        self.proxy_index = 0
 
     def clear_terminal(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -53,9 +52,76 @@ class MidasRWA:
         minutes, seconds = divmod(remainder, 60)
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
     
-    def user_register(self, query: str, retries=3):
+    def load_auto_proxies(self):
+        url = "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt"
+        try:
+            response = requests.get(url=url, timeout=10)
+            response.raise_for_status()
+            content = response.text
+            with open('proxy.txt', 'w') as f:
+                        f.write(content)
+
+            self.proxies = content.splitlines()
+            if not self.proxies:
+                self.log(f"{Fore.RED + Style.BRIGHT}No proxies found in the downloaded list!{Style.RESET_ALL}")
+                return
+            
+            self.log(f"{Fore.GREEN + Style.BRIGHT}Proxies successfully downloaded.{Style.RESET_ALL}")
+            self.log(f"{Fore.YELLOW + Style.BRIGHT}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
+            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
+            time.sleep(3)
+        except requests.RequestsError as e:
+            self.log(f"{Fore.RED + Style.BRIGHT}Failed to load proxies: {e}{Style.RESET_ALL}")
+            return []
+        
+    def load_manual_proxy(self):
+        try:
+            if not os.path.exists('manual_proxy.txt'):
+                print(f"{Fore.RED + Style.BRIGHT}Proxy file 'manual_proxy.txt' not found!{Style.RESET_ALL}")
+                return
+
+            with open('manual_proxy.txt', "r") as f:
+                proxies = f.read().splitlines()
+
+            self.proxies = proxies
+            self.log(f"{Fore.YELLOW + Style.BRIGHT}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
+            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
+            time.sleep(3)
+        except Exception as e:
+            print(f"{Fore.RED + Style.BRIGHT}Failed to load manual proxies: {e}{Style.RESET_ALL}")
+            self.proxies = []
+
+    def check_proxy_schemes(self, proxies):
+        schemes = ["http://", "https://", "socks4://", "socks5://"]
+        if any(proxies.startswith(scheme) for scheme in schemes):
+            return proxies
+        
+        return f"http://{proxies}" # Change with yours proxy schemes if your proxy not have schemes [http:// or socks5://]
+
+    def get_next_proxy(self):
+        if not self.proxies:
+            self.log(f"{Fore.RED + Style.BRIGHT}No proxies available!{Style.RESET_ALL}")
+            return None
+
+        proxy = self.proxies[self.proxy_index]
+        self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
+        return self.check_proxy_schemes(proxy)
+    
+    def load_data(self, query: str):
+        query_params = parse_qs(query)
+        query = query_params.get('user', [None])[0]
+
+        if query:
+            user_data_json = unquote(query)
+            user_data = json.loads(user_data_json)
+            first_name = user_data.get("first_name", "Unknown")
+            return first_name
+        else:
+            raise ValueError("User data not found in query.")
+    
+    def user_register(self, query: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/auth/register'
-        data = json.dumps({'initData':query, 'source':'ref_b6243c03-25ae-43f0-9667-5defd6c43b9b'})
+        data = json.dumps({'initData':query, 'source':self.source})
         headers = {
             **self.headers,
             'Content-Length': str(len(data)),
@@ -63,32 +129,15 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.post(url, headers=headers, data=data, timeout=10)
-                if response.status_code == 401:
-                    self.log(
-                        f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                        f"{Fore.RED + Style.BRIGHT} Query Id Isn't Valid. {Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT}Update First{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
-                    )
-                    return
-                elif response.status_code == 403:
-                    self.log(
-                        f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                        f"{Fore.RED + Style.BRIGHT} Blocked By Cloudflare. {Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT}Restart Again{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
-                    )
-                    return
-        
+                response = requests.post(url=url, headers=headers, data=data, proxy=proxy, timeout=10, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.text
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
+                self.log(f"Error: {str(e)}")
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -96,7 +145,7 @@ class MidasRWA:
                 else:
                     return None
                 
-    def user_data(self, token: str, retries=3):
+    def user_data(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/user'
         headers = {
             **self.headers,
@@ -105,15 +154,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.get(url, headers=headers, timeout=10)
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -121,7 +169,7 @@ class MidasRWA:
                 else:
                     return None
                 
-    def user_visited(self, token: str, retries=3):
+    def user_visited(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/user/visited'
         headers = {
             **self.headers,
@@ -131,15 +179,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.patch(url, headers=headers, timeout=10)
+                response = requests.patch(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -147,7 +194,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def daily_checkin(self, token: str, retries=3):
+    def daily_checkin(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/streak'
         headers = {
             **self.headers,
@@ -156,15 +203,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.get(url, headers=headers, timeout=10)
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -172,7 +218,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def claim_checkin(self, token: str, retries=3):
+    def claim_checkin(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/streak'
         headers = {
             **self.headers,
@@ -182,15 +228,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.post(url, headers=headers, timeout=10)
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -198,7 +243,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def refferal(self, token: str, retries=3):
+    def refferal(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/referral/status'
         headers = {
             **self.headers,
@@ -207,15 +252,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.get(url, headers=headers, timeout=10)
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -223,7 +267,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def claim_refferal(self, token: str, retries=3):
+    def claim_refferal(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/referral/claim'
         headers = {
             **self.headers,
@@ -233,15 +277,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.post(url, headers=headers, timeout=10)
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -249,7 +292,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def game_play(self, token: str, retries=3):
+    def game_play(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/game/play'
         headers = {
             **self.headers,
@@ -259,15 +302,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.post(url, headers=headers, timeout=10)
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -275,7 +317,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def tasks(self, token: str, retries=3):
+    def tasks(self, token: str, proxy: str, retries=5):
         url = 'https://api-tg-app.midas.app/api/tasks/available'
         headers = {
             **self.headers,
@@ -284,15 +326,14 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.get(url, headers=headers, timeout=10)
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -300,7 +341,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def start_tasks(self, token: str, task_id: str, retries=3):
+    def start_tasks(self, token: str, task_id: str, proxy: str, retries=5):
         url = f'https://api-tg-app.midas.app/api/tasks/start/{task_id}'
         headers = {
             **self.headers,
@@ -310,18 +351,17 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.post(url, headers=headers, timeout=10)
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 if response.status_code == 400:
                     return None
                 
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
@@ -329,7 +369,7 @@ class MidasRWA:
                 else:
                     return None
         
-    def claim_tasks(self, token: str, task_id: str, retries=3):
+    def claim_tasks(self, token: str, task_id: str, proxy: str, retries=5):
         url = f'https://api-tg-app.midas.app/api/tasks/claim/{task_id}'
         headers = {
             **self.headers,
@@ -339,134 +379,191 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = self.scraper.post(url, headers=headers, timeout=10)
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
                 if response.status_code == 400:
                     return None
                 
                 response.raise_for_status()
                 return response.json()
-            except (requests.RequestException, requests.Timeout, ValueError) as e:
+            except requests.RequestsError as e:
                 if attempt < retries - 1:
                     print(
-                        f"{Fore.RED + Style.BRIGHT}Request Timeout.{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}[{attempt+1}/{retries}]{Style.RESET_ALL}",
+                        f"{Fore.RED + Style.BRIGHT}GET ERROR.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Retrying... {Style.RESET_ALL}",
                         end="\r",
                         flush=True
                     )
                     time.sleep(2)
                 else:
                     return None
-        
-    def process_query(self, query: str):
-        token = self.user_register(query)
-        if not token:
-            return
-        
-        if token:
-            user = self.user_data(token)
-            if user:
-                visit = user['isFirstVisit']
-                if visit:
-                    user = self.user_visited(token)
-                    self.log(
-                        f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {user['firstName']} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}] [ Balance{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {user['points']} GM {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}] [ Tap{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {user['tickets']} Left {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
-                else:
-                    self.log(
-                        f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {user['firstName']} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}] [ Balance{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {user['points']} GM {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}] [ Tap{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {user['tickets']} Left {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
-                time.sleep(1)
+                
+    def question(self):
+        while True:
+            try:
+                print("1. Run With Auto Proxy")
+                print("2. Run With Manual Proxy")
+                print("3. Run Without Proxy")
+                choose = int(input("Choose [1/2/3] -> ").strip())
 
-                checkin = self.daily_checkin(token)
-                if checkin:
-                    claimable = checkin['claimable']
-                    if claimable:
-                        claim = self.claim_checkin(token)
-                        if claim and not claim['claimable']:
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} Day {claim['streakDaysCount']} {Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {checkin['nextRewards']['points']} GM {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {checkin['nextRewards']['tickets']} Tap {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                            )
-                        else:
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} Day {claim['streakDaysCount']} {Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                            )
+                if choose in [1, 2, 3]:
+                    proxy_type = (
+                        "With Auto" if choose == 1 else 
+                        "With Manual" if choose == 2 else 
+                        "Without"
+                    )
+                    print(f"{Fore.GREEN + Style.BRIGHT}Run {proxy_type} Proxy Selected.{Style.RESET_ALL}")
+                    time.sleep(1)
+                    return choose
+                else:
+                    print(f"{Fore.RED + Style.BRIGHT}Please enter either 1, 2 or 3.{Style.RESET_ALL}")
+            except ValueError:
+                print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
+        
+    def process_query(self, query: str, use_proxy: bool):
+        first_name = self.load_data(query)
+        
+        proxy = None
+        if use_proxy:
+            proxy = self.get_next_proxy()
+
+        token = None
+        while token is None:
+            token = self.user_register(query, proxy)
+            if not token:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {first_name} {Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT}GET Token Failed{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} With Proxy {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+
+                if not use_proxy:
+                    return
+
+                print(
+                    f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                    f"{Fore.YELLOW + Style.BRIGHT}Retrying With Next Proxy... {Style.RESET_ALL}",
+                    end="\r",
+                    flush=True
+                )
+
+                proxy = self.get_next_proxy()
+                continue
+        
+            user = self.user_data(token, proxy)
+            if not user:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {first_name} {Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT}Data Is None{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+                return
+
+            first_visit = user['isFirstVisit']
+            if first_visit:
+                user = self.user_visited(token, proxy)
+                if not user:
+                    self.log(
+                        f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT} {first_name} {Style.RESET_ALL}"
+                        f"{Fore.RED+Style.BRIGHT}Data Is None{Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+                    return
+
+            self.log(
+                f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {user['firstName']} {Style.RESET_ALL}"
+                f"{Fore.MAGENTA+Style.BRIGHT}] [ Balance{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {user['points']} GM {Style.RESET_ALL}"
+                f"{Fore.MAGENTA+Style.BRIGHT}] [ Tap{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {user['tickets']} Left {Style.RESET_ALL}"
+                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+            )
+            time.sleep(5)
+
+            checkin = self.daily_checkin(token, proxy)
+            if checkin:
+                claimable = checkin['claimable']
+                if claimable:
+                    claim = self.claim_checkin(token, proxy)
+                    if claim and not claim['claimable']:
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} Day {claim['streakDaysCount']} {Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {checkin['nextRewards']['points']} GM {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {checkin['nextRewards']['tickets']} Tap {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
                     else:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} Day {checkin['streakDaysCount']} {Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT}Is Already Claimed{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} Day {claim['streakDaysCount']} {Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                         )
                 else:
                     self.log(
                         f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT} Day {checkin['streakDaysCount']} {Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT}Is Already Claimed{Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                     )
-                time.sleep(1)
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+            time.sleep(5)
 
-                refferal = self.refferal(token)
-                if refferal:
-                    can_claim = refferal['canClaim']
-                    if can_claim:
-                        claim = self.claim_refferal(token)
-                        if claim and claim['message'] == 'Rewards claimed successfully':
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}[ Refferal{Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {claim['totalPoints']} GM {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {claim['totalTickets']} Tap {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                            )
-                        else:
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}[ Refferal{Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                            )
+            refferal = self.refferal(token, proxy)
+            if refferal:
+                can_claim = refferal['canClaim']
+                if can_claim:
+                    claim = self.claim_refferal(token, proxy)
+                    if claim and claim['message'] == 'Rewards claimed successfully':
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Refferal{Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {claim['totalPoints']} GM {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {claim['totalTickets']} Tap {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
                     else:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Refferal{Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT} No Rewards to Claim {Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
                 else:
                     self.log(
                         f"{Fore.MAGENTA+Style.BRIGHT}[ Refferal{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT} No Rewards to Claim {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
-                time.sleep(1)
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Refferal{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+            time.sleep(5)
 
-                ticket = self.user_data(token)['tickets']
-                if ticket and ticket > 0:
+            user = self.user_data(token, proxy)
+            if user:
+                ticket = user['tickets']
+                if ticket > 0:
                     while ticket > 0:
-                        tap_tap = self.game_play(token)
+                        tap_tap = self.game_play(token, proxy)
                         if tap_tap:
                             ticket -= 1
                             self.log(
@@ -486,7 +583,7 @@ class MidasRWA:
                             )
                             break
 
-                        time.sleep(2)
+                        time.sleep(3)
 
                     if ticket == 0:
                         self.log(
@@ -500,69 +597,47 @@ class MidasRWA:
                         f"{Fore.YELLOW+Style.BRIGHT} No Chance Left {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
-                time.sleep(1)
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {first_name} {Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT}GET Tickets Failed{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+            time.sleep(5)
 
-                tasks = self.tasks(token)
-                if tasks:
-                    completed = False
-                    for task in tasks:
-                        task_id = task['id']
-                        status = task['state']
+            tasks = self.tasks(token, proxy)
+            if tasks:
+                completed = False
+                for task in tasks:
+                    task_id = task['id']
+                    status = task['state']
 
-                        if task and status == 'WAITING':
-                            start = self.start_tasks(token, task_id)
-                            if start and start['state'] == 'CLAIMABLE':
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT}Is Started{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                    if task and status == 'WAITING':
+                        start = self.start_tasks(token, task_id, proxy)
+                        if start and start['state'] == 'CLAIMABLE':
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT}Is Started{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+
+                            delay = random.randint(15, 20)
+                            for remaining in range(delay, 0, -1):
+                                print(
+                                    f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                                    f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                                    f"{Fore.MAGENTA + Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
+                                    f"{Fore.YELLOW + Style.BRIGHT} {remaining} {Style.RESET_ALL}"
+                                    f"{Fore.WHITE + Style.BRIGHT}Seconds to Claim Reward{Style.RESET_ALL}"
+                                    f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}  ",
+                                    end="\r",
+                                    flush=True
                                 )
-
-                                delay = random.randint(15, 20)
-                                for remaining in range(delay, 0, -1):
-                                    print(
-                                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                                        f"{Fore.MAGENTA + Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
-                                        f"{Fore.YELLOW + Style.BRIGHT} {remaining} {Style.RESET_ALL}"
-                                        f"{Fore.WHITE + Style.BRIGHT}Seconds to Claim Reward{Style.RESET_ALL}"
-                                        f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}  ",
-                                        end="\r",
-                                        flush=True
-                                    )
-                                    time.sleep(1)
-
-                                claim = self.claim_tasks(token, task_id)
-                                if claim and claim['state'] == 'COMPLETED':
-                                    self.log(
-                                        f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                        f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
-                                        f"{Fore.GREEN+Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
-                                        f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
-                                        f"{Fore.WHITE+Style.BRIGHT} {task['points']} GM {Style.RESET_ALL}"
-                                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                                    )
-                                else:
-                                    self.log(
-                                        f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                        f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
-                                        f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
-                                        f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}            "
-                                    )
                                 time.sleep(1)
 
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT}Isn't Started{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                            time.sleep(1)
-
-                        elif task and status == 'CLAIMABLE':
-                            claim = self.claim_tasks(token, task_id)
+                            claim = self.claim_tasks(token, task_id, proxy)
                             if claim and claim['state'] == 'COMPLETED':
                                 self.log(
                                     f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
@@ -577,31 +652,65 @@ class MidasRWA:
                                     f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
                                     f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
                                     f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}            "
                                 )
-                            time.sleep(1)
+                            time.sleep(3)
 
                         else:
-                            completed = True
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT}Isn't Started{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                        time.sleep(3)
 
-                    if completed:
-                        self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                            f"{Fore.GREEN+Style.BRIGHT} Is Completed {Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                        )
+                    elif task and status == 'CLAIMABLE':
+                        claim = self.claim_tasks(token, task_id, proxy)
+                        if claim and claim['state'] == 'COMPLETED':
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['points']} GM {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                            )
+                        else:
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name']} {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                        time.sleep(3)
 
-                else:
+                    else:
+                        completed = True
+
+                if completed:
                     self.log(
                         f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
+                        f"{Fore.GREEN+Style.BRIGHT} Is Completed {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Data Is None {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
 
     def main(self):
         try:
             with open('query.txt', 'r') as file:
                 queries = [line.strip() for line in file if line.strip()]
+
+            use_proxy_choice = self.question()
+
+            use_proxy = False
+            if use_proxy_choice in [1, 2]:
+                use_proxy = True
 
             while True:
                 self.clear_terminal()
@@ -613,21 +722,42 @@ class MidasRWA:
                 )
                 self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
+                if use_proxy and use_proxy_choice == 1:
+                    self.load_auto_proxies()
+                elif use_proxy and use_proxy_choice == 2:
+                    self.load_manual_proxy()
+
                 for query in queries:
                     query = query.strip()
                     if query:
-                        self.process_query(query)
+                        self.process_query(query, use_proxy)
                         self.log(f"{Fore.CYAN+Style.BRIGHT}-{Style.RESET_ALL}"*75)
-                        time.sleep(3)
+                        seconds = random.randint(5, 10)
+                        while seconds > 0:
+                            formatted_time = self.format_seconds(seconds)
+                            print(
+                                f"{Fore.CYAN+Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {formatted_time} {Style.RESET_ALL}"
+                                f"{Fore.CYAN+Style.BRIGHT}... ]{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} | {Style.RESET_ALL}"
+                                f"{Fore.YELLOW+Style.BRIGHT}Processing Next Accounts...{Style.RESET_ALL}",
+                                end="\r",
+                                flush=True
+                            )
+                            time.sleep(1)
+                            seconds -= 1
 
-                seconds = 21600
+                seconds = 86400
                 while seconds > 0:
                     formatted_time = self.format_seconds(seconds)
                     print(
                         f"{Fore.CYAN+Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
                         f"{Fore.WHITE+Style.BRIGHT} {formatted_time} {Style.RESET_ALL}"
-                        f"{Fore.CYAN+Style.BRIGHT}... ]{Style.RESET_ALL}",
-                        end="\r"
+                        f"{Fore.CYAN+Style.BRIGHT}... ]{Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT} | {Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT}All Accounts Have Been Processed...{Style.RESET_ALL}",
+                        end="\r",
+                        flush=True
                     )
                     time.sleep(1)
                     seconds -= 1

@@ -1,9 +1,7 @@
 # MidasRWA BOT
 MidasRWA BOT
 
-Register Here : [MidasRWA](https://t.me/MidasRWA_bot/app?startapp=ref_e3f89236-4c61-445e-81ec-7796d03b4eed)
-
-Telegram Channel: [Vonssy - Code](https://t.me/vonssy_code)
+Register Here : [MidasRWA](https://t.me/MidasRWA_bot/app?startapp=ref_b6243c03-25ae-43f0-9667-5defd6c43b9b)
 
 ## Fitur
 
@@ -39,6 +37,17 @@ Pastikan Anda telah menginstal Python3.9 dan PIP.
   ```bash
   query_id=
   user=
+  ```
+
+- **manual_proxy.txt:** Anda akan menemukan file `manual_proxy.txt` di dalam direktori proyek. Pastikan `manual_proxy.txt` berisi data yang sesuai dengan format yang diharapkan oleh skrip. Berikut adalah contoh format file:
+  ```bash
+    ip:port #http or socks5 - change schemes in line 99
+    http://ip:port
+    socks4://ip:port
+    socks5://ip:port
+    http://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
+    socks4://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
+    socks5://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
   ```
 
 ## Jalankan
