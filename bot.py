@@ -55,7 +55,7 @@ class MidasRWA:
     def load_auto_proxies(self):
         url = "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt"
         try:
-            response = requests.get(url=url, timeout=10)
+            response = requests.get(url=url, timeout=30)
             response.raise_for_status()
             content = response.text
             with open('proxy.txt', 'w') as f:
@@ -129,7 +129,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, data=data, proxy=proxy, timeout=10, impersonate="safari15_5")    
+                response = requests.post(url=url, headers=headers, data=data, proxy=proxy, timeout=30, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.text
             except requests.RequestsError as e:
@@ -154,7 +154,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -179,7 +179,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.patch(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.patch(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -203,7 +203,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -228,7 +228,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -252,7 +252,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -277,7 +277,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -302,7 +302,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -326,7 +326,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.json()
             except requests.RequestsError as e:
@@ -351,7 +351,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 if response.status_code == 400:
                     return None
                 
@@ -379,7 +379,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=10, impersonate="safari15_5")
+                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=30, impersonate="safari15_5")
                 if response.status_code == 400:
                     return None
                 
@@ -490,10 +490,10 @@ class MidasRWA:
                 claimable = checkin['claimable']
                 if claimable:
                     claim = self.claim_checkin(token, proxy)
-                    if claim and not claim['claimable']:
+                    if claim:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} Day {claim['streakDaysCount']} {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} Day {checkin['streakDaysCount']} {Style.RESET_ALL}"
                             f"{Fore.GREEN+Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
                             f"{Fore.WHITE+Style.BRIGHT} {checkin['nextRewards']['points']} GM {Style.RESET_ALL}"
@@ -504,7 +504,7 @@ class MidasRWA:
                     else:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Check-In{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} Day {claim['streakDaysCount']} {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} Day {checkin['streakDaysCount']} {Style.RESET_ALL}"
                             f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                         )
