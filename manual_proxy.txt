@@ -1,7 +1,3 @@
 ip:port #http or socks5 - change schemes in line 99
-http://ip:port
-socks4://ip:port
-socks5://ip:port
-http://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
-socks4://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
-socks5://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
+protcol://ip:port
+protcol://user:pass@ip:port
