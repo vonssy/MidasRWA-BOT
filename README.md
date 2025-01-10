@@ -41,9 +41,9 @@ Pastikan Anda telah menginstal Python3.9 dan PIP.
 
 - **manual_proxy.txt:** Anda akan menemukan file `manual_proxy.txt` di dalam direktori proyek. Pastikan `manual_proxy.txt` berisi data yang sesuai dengan format yang diharapkan oleh skrip. Berikut adalah contoh format file:
   ```bash
-    ip:port #http or socks5 - change schemes in line 99
-    protcol://ip:port
-    protcol://user:pass@ip:port
+    ip:port # Default Protcol HTTP.
+    protocol://ip:port
+    protocol://user:pass@ip:port
   ```
 
 ## Jalankan
