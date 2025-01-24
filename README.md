@@ -3,21 +3,25 @@ MidasRWA BOT
 
 Register Here : [MidasRWA](https://t.me/MidasRWA_bot/app?startapp=ref_b6243c03-25ae-43f0-9667-5defd6c43b9b)
 
-## Fitur
+## Features
 
   - Auto Get Account Information
+  - Auto Run With [Monosans](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt) Proxy - Choose 1
+  - Auto Run With Private Proxy - Choose 2
+  - Auto Run Without Proxy - Choose 3
   - Auto Claim Daily Check-In
   - Auto Claim Refferal
   - Auto Play Tap Tap
   - Auto Complete Task
+  - Multi Accounts
 
-## Prasyarat
+## Requiremnets
 
-Pastikan Anda telah menginstal Python3.9 dan PIP.
+- Make sure you have Python3.9 or higher installed and pip.
 
-## Instalasi
+## Instalation
 
-1. **Kloning repositori:**
+1. **Clone The Repositories:**
    ```bash
    git clone https://github.com/vonssy/MidasRWA-BOT.git
    ```
@@ -25,40 +29,41 @@ Pastikan Anda telah menginstal Python3.9 dan PIP.
    cd MidasRWA-BOT
    ```
 
-2. **Instal Requirements:**
+2. **Install Requirements:**
    ```bash
    pip install -r requirements.txt #or pip3 install -r requirements.txt
    ```
 
-## Konfigurasi
+## Configuration
 
-- **query.txt:** Anda akan menemukan file `query.txt` di dalam direktori proyek. Pastikan `query.txt` berisi data yang sesuai dengan format yang diharapkan oleh skrip. Berikut adalah contoh format file:
+- **query.txt:** You will find the file `query.txt` inside the project directory. Make sure `query.txt` contains data that matches the format expected by the script. Here are examples of file formats:
 
   ```bash
   query_id=
   user=
   ```
 
-- **manual_proxy.txt:** Anda akan menemukan file `manual_proxy.txt` di dalam direktori proyek. Pastikan `manual_proxy.txt` berisi data yang sesuai dengan format yang diharapkan oleh skrip. Berikut adalah contoh format file:
+- **proxy.txt:** You will find the file `proxy.txt` inside the project directory. Make sure `proxy.txt` contains data that matches the format expected by the script. Here are examples of file formats:
   ```bash
     ip:port # Default Protcol HTTP.
     protocol://ip:port
     protocol://user:pass@ip:port
   ```
 
-## Jalankan
+## Run
 
 ```bash
 python bot.py #or python3 bot.py
 ```
 
-## Note
-  1. If an error occurs during the first query processing, it means it was blocked by Cloudflare. restart again, again, and again.
-  2. If an error occurs in other than the first query, then the query is invalid, replace it.
+## Buy Me a Coffee
 
-## Penutup
+- **EVM:** 0xe3c9ef9a39e9eb0582e5b147026cae524338521a
+- **TON:** UQBEFv58DC4FUrGqinBB5PAQS7TzXSm5c1Fn6nkiet8kmehB
+- **SOL:** E1xkaJYmAFEj28NPHKhjbf7GcvfdjKdvXju8d8AeSunf
+- **SUI:** 0xa03726ecbbe00b31df6a61d7a59d02a7eedc39fe269532ceab97852a04cf3347
 
-Terima kasih telah mengunjungi repository ini, jangan lupa untuk memberikan kontribusi berupa follow dan stars.
-Jika Anda memiliki pertanyaan, menemukan masalah, atau memiliki saran untuk perbaikan, jangan ragu untuk menghubungi saya atau membuka *issue* di repositori GitHub ini.
+Thank you for visiting this repository, don't forget to contribute in the form of follows and stars.
+If you have questions, find an issue, or have suggestions for improvement, feel free to contact me or open an *issue* in this GitHub repository.
 
 **vonssy**
