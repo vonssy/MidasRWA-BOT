@@ -516,6 +516,7 @@ class MidasRWA:
                     if task:
                         task_id = task.get('id')
                         title = task.get('name')
+                        reward = task.get("points", 0)
                         delay = task.get('waitTime')
                         status = task.get('state')
 
@@ -548,7 +549,6 @@ class MidasRWA:
 
                                 claim = self.claim_tasks(token, task_id, title, proxy)
                                 if claim and claim.get('state') == "COMPLETED":
-                                    reward = claim.get("points", 0)
                                     self.print_message("    > Title  ", Fore.WHITE, f"{title}"
                                         f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
                                         f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
@@ -561,7 +561,6 @@ class MidasRWA:
                         elif status == "CLAIMABLE":
                             claim = self.claim_tasks(token, task_id, title, proxy)
                             if claim and claim.get('state') == "COMPLETED":
-                                reward = claim.get("points", 0)
                                 self.print_message("    > Title  ", Fore.WHITE, f"{title}"
                                     f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
                                     f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
