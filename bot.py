@@ -514,9 +514,10 @@ class MidasRWA:
 
                 for task in tasks:
                     if task:
-                        task_id = task['id']
-                        title = task['name']
-                        status = task['state']
+                        task_id = task.get('id')
+                        title = task.get('name')
+                        delay = task.get('waitTime')
+                        status = task.get('state')
 
                         if status == "COMPLETED":
                             self.print_message("    > Title  ", Fore.WHITE, f"{title} "
@@ -532,20 +533,20 @@ class MidasRWA:
                                     f"{Fore.GREEN+Style.BRIGHT}Is Started{Style.RESET_ALL}"
                                 )
 
-                                for remaining in range(15, 0, -1):
-                                    print(
-                                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                                        f"{Fore.CYAN + Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
-                                        f"{Fore.YELLOW + Style.BRIGHT} {remaining} {Style.RESET_ALL}"
-                                        f"{Fore.WHITE + Style.BRIGHT}Seconds to Claim Reward{Style.RESET_ALL}"
-                                        f"{Fore.CYAN + Style.BRIGHT} ]{Style.RESET_ALL}  ",
-                                        end="\r",
-                                        flush=True
-                                    )
-                                    time.sleep(1)
+                                if delay is not None:
+                                    for remaining in range(delay, 0, -1):
+                                        print(
+                                            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                                            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                                            f"{Fore.CYAN + Style.BRIGHT}    > Wait For{Style.RESET_ALL}"
+                                            f"{Fore.YELLOW + Style.BRIGHT} {remaining} {Style.RESET_ALL}"
+                                            f"{Fore.WHITE + Style.BRIGHT}Seconds to Claim Reward...{Style.RESET_ALL}",
+                                            end="\r",
+                                            flush=True
+                                        )
+                                        time.sleep(1)
 
-                                claim = self.perform_tasks(token, task_id, title, proxy)
+                                claim = self.claim_tasks(token, task_id, title, proxy)
                                 if claim and claim.get('state') == "COMPLETED":
                                     reward = claim.get("points", 0)
                                     self.print_message("    > Title  ", Fore.WHITE, f"{title}"
@@ -558,7 +559,7 @@ class MidasRWA:
                             time.sleep(1)
                             
                         elif status == "CLAIMABLE":
-                            claim = self.perform_tasks(token, task_id, title, proxy)
+                            claim = self.claim_tasks(token, task_id, title, proxy)
                             if claim and claim.get('state') == "COMPLETED":
                                 reward = claim.get("points", 0)
                                 self.print_message("    > Title  ", Fore.WHITE, f"{title}"
