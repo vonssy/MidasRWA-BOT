@@ -470,7 +470,8 @@ class MidasRWA:
                 else:
                     self.print_message("Refferal  ", Fore.YELLOW, "No Available Reward")
 
-            tickets = user.get("tickets", 0)
+            tickets = 0
+            
             user = self.user_data(token, proxy)
             if user:
                 tickets = user.get("tickets", 0)
