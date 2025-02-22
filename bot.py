@@ -196,7 +196,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = await asyncio.to_threadrequests.patch(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.patch, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
