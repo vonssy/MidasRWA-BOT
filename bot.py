@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, unquote
 from fake_useragent import FakeUserAgent
 from datetime import datetime
 from colorama import *
-import time, json, os, pytz
+import asyncio, time, json, os, pytz
 
 wib = pytz.timezone('Asia/Jakarta')
 
@@ -49,11 +49,11 @@ class MidasRWA:
         minutes, seconds = divmod(remainder, 60)
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
     
-    def load_proxies(self, use_proxy_choice: bool):
+    async def load_proxies(self, use_proxy_choice: bool):
         filename = "proxy.txt"
         try:
             if use_proxy_choice == 1:
-                response = requests.get("https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt")
+                response = await asyncio.to_thread(requests.get, "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt")
                 response.raise_for_status()
                 content = response.text
                 with open(filename, 'w') as f:
@@ -139,7 +139,7 @@ class MidasRWA:
             except ValueError:
                 print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
 
-    def user_login(self, query: str, proxy=None, retries=5):
+    async def user_login(self, query: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/auth/register'
         data = json.dumps({'initData':query, 'source':self.source})
         headers = {
@@ -149,7 +149,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, data=data, proxy=proxy, timeout=60, impersonate="safari15_5")
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxy=proxy, timeout=60, impersonate="safari15_5")
                 response.raise_for_status()
                 return response.text
             except Exception as e:
@@ -164,7 +164,7 @@ class MidasRWA:
                 self.print_message("Proxy     ", Fore.WHITE, proxy)
                 return None
 
-    def user_data(self, token: str, proxy=None, retries=5):
+    async def user_data(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/user'
         headers = {
             **self.headers,
@@ -173,7 +173,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -186,7 +186,7 @@ class MidasRWA:
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
             
-    def user_visited(self, token: str, proxy=None, retries=5):
+    async def user_visited(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/user/visited'
         headers = {
             **self.headers,
@@ -196,7 +196,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.patch(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_threadrequests.patch(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -206,7 +206,7 @@ class MidasRWA:
 
                 return None
                 
-    def daily_checkin(self, token: str, proxy=None, retries=5):
+    async def daily_checkin(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/streak'
         headers = {
             **self.headers,
@@ -215,7 +215,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -228,7 +228,7 @@ class MidasRWA:
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
                 
-    def claim_checkin(self, token: str, streak_days: int, proxy=None, retries=5):
+    async def claim_checkin(self, token: str, streak_days: int, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/streak'
         headers = {
             **self.headers,
@@ -238,7 +238,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -252,7 +252,7 @@ class MidasRWA:
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
                 
-    def refferal_status(self, token: str, proxy=None, retries=5):
+    async def refferal_status(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/referral/status'
         headers = {
             **self.headers,
@@ -261,7 +261,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -274,7 +274,7 @@ class MidasRWA:
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
                 
-    def claim_refferal(self, token: str, proxy=None, retries=5):
+    async def claim_refferal(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/referral/claim'
         headers = {
             **self.headers,
@@ -284,7 +284,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -297,7 +297,7 @@ class MidasRWA:
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
             
-    def play_game(self, token: str, proxy=None, retries=5):
+    async def play_game(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/game/play'
         headers = {
             **self.headers,
@@ -307,7 +307,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -320,7 +320,7 @@ class MidasRWA:
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
             
-    def available_tasks(self, token: str, proxy=None, retries=5):
+    async def available_tasks(self, token: str, proxy=None, retries=5):
         url = 'https://api-tg-app.midas.app/api/tasks/available'
         headers = {
             **self.headers,
@@ -329,7 +329,7 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.get(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -339,7 +339,7 @@ class MidasRWA:
 
                 return self.print_message("Task Lists", Fore.RED, {str(e)})
             
-    def perform_tasks(self, token: str, task_id: str, title: str, proxy=None, retries=5):
+    async def perform_tasks(self, token: str, task_id: str, title: str, proxy=None, retries=5):
         url = f'https://api-tg-app.midas.app/api/tasks/start/{task_id}'
         headers = {
             **self.headers,
@@ -349,9 +349,9 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 if response.status_code == 400:
-                    return self.print_message("    > Title  ", Fore.WHITE, f"{title}"
+                    return self.print_message("     > ", Fore.WHITE, f"{title}"
                         f"{Fore.RED+Style.BRIGHT} Isn't Started: {Style.RESET_ALL}"
                         f"{Fore.YELLOW+Style.BRIGHT}Not Eligible{Style.RESET_ALL}"
                     )
@@ -363,12 +363,12 @@ class MidasRWA:
                     time.sleep(3)
                     continue
 
-                return self.print_message("    > Title  ", Fore.WHITE, f"{title}"
+                return self.print_message("     > ", Fore.WHITE, f"{title}"
                     f"{Fore.RED+Style.BRIGHT} Isn't Started: {Style.RESET_ALL}"
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
             
-    def claim_tasks(self, token: str, task_id: str, title: str, proxy=None, retries=5):
+    async def claim_tasks(self, token: str, task_id: str, title: str, proxy=None, retries=5):
         url = f'https://api-tg-app.midas.app/api/tasks/claim/{task_id}'
         headers = {
             **self.headers,
@@ -378,9 +378,9 @@ class MidasRWA:
         }
         for attempt in range(retries):
             try:
-                response = requests.post(url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="safari15_5")    
                 if response.status_code == 400:
-                    return self.print_message("    > Title  ", Fore.WHITE, f"{title}"
+                    return self.print_message("     > ", Fore.WHITE, f"{title}"
                         f"{Fore.RED+Style.BRIGHT} Isn't Claimed: {Style.RESET_ALL}"
                         f"{Fore.YELLOW+Style.BRIGHT}Not Eligible{Style.RESET_ALL}"
                     )
@@ -392,16 +392,16 @@ class MidasRWA:
                     time.sleep(5)
                     continue
 
-                return self.print_message("    > Title  ", Fore.WHITE, f"{title}"
+                return self.print_message("     > ", Fore.WHITE, f"{title}"
                     f"{Fore.RED+Style.BRIGHT} Isn't Claimed: {Style.RESET_ALL}"
                     f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
                 )
             
-    def process_query(self, query: str, user_id: str, use_proxy: bool):
+    async def process_query(self, query: str, user_id: str, use_proxy: bool):
         proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
         token = None
         while token is None:
-            token = self.user_login(query, proxy)
+            token = await self.user_login(query, proxy)
             if not token:
                 proxy = self.rotate_proxy_for_account(user_id) if use_proxy else None
                 time.sleep(1)
@@ -410,25 +410,25 @@ class MidasRWA:
             self.print_message("Status    ", Fore.GREEN, "Login Success")
             self.print_message("Proxy     ", Fore.WHITE, proxy)
 
-            user = self.user_data(token, proxy)
+            user = await self.user_data(token, proxy)
             if user:
                 balance = user.get("points", 0)
                 ticket = user.get("tickets", 0)
 
                 first_visit = user.get("isFirstVisit", False)
                 if first_visit:
-                    self.user_visited(token, proxy)
+                    await self.user_visited(token, proxy)
 
                 self.print_message("Balance   ", Fore.WHITE, f"{balance} GM")
                 self.print_message("Ticket    ", Fore.WHITE, f"{ticket} Tap")
 
-            checkin = self.daily_checkin(token, proxy)
+            checkin = await self.daily_checkin(token, proxy)
             if checkin:
                 streak_days = checkin.get("streakDaysCount", 0)
                 is_claimable = checkin.get("claimable", False)
 
                 if is_claimable:
-                    claim = self.claim_checkin(token, streak_days, proxy)
+                    claim = await self.claim_checkin(token, streak_days, proxy)
 
                     if claim:
                         balance_reward = claim.get("nextRewards", {}).get("points", 0)
@@ -449,17 +449,17 @@ class MidasRWA:
                         f"{Fore.YELLOW+Style.BRIGHT}Is Already Claimed{Style.RESET_ALL}"
                     )
 
-            refferal = self.refferal_status(token, proxy)
+            refferal = await self.refferal_status(token, proxy)
             if refferal:
                 can_claim = refferal.get("canClaim", False)
 
                 if can_claim:
-                    claim = self.claim_refferal(token, proxy)
+                    claim = await self.claim_refferal(token, proxy)
 
                     if claim:
                         balance_reward = claim.get("totalPoints", 0)
                         ticket_reward = claim.get("totalTickets", 0)
-                        self.print_message("Check-In  ", Fore.GREEN, f"Is Claimed "
+                        self.print_message("Refferal  ", Fore.GREEN, f"Is Claimed "
                             f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                             f"{Fore.CYAN+Style.BRIGHT} Reward {Style.RESET_ALL}"
                             f"{Fore.WHITE+Style.BRIGHT}{balance_reward} GM{Style.RESET_ALL}"
@@ -472,18 +472,18 @@ class MidasRWA:
 
             tickets = 0
             
-            user = self.user_data(token, proxy)
+            user = await self.user_data(token, proxy)
             if user:
                 tickets = user.get("tickets", 0)
 
             if tickets > 0:
                 self.print_message("Play Game ", Fore.GREEN, 
                     f"Available "
-                    f"{Fore.WHITE+Style.BRIGHT}{ticket} Ticket{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT}{tickets} Tickets{Style.RESET_ALL}"
                 )
 
                 while tickets > 0:
-                    tap_tap = self.play_game(token, proxy)
+                    tap_tap = await self.play_game(token, proxy)
                     if tap_tap: 
                         tickets -= 1
                         reward = tap_tap.get("points", 0)
@@ -507,7 +507,7 @@ class MidasRWA:
                     f"No Available Ticket"
                 )
 
-            tasks = self.available_tasks(token, proxy)
+            tasks = await self.available_tasks(token, proxy)
             if tasks:
                 self.print_message("Task Lists", Fore.GREEN, "Available "
                     f"{Fore.WHITE+Style.BRIGHT}{len(tasks)} Tasks{Style.RESET_ALL}"
@@ -522,16 +522,16 @@ class MidasRWA:
                         status = task.get('state')
 
                         if status == "COMPLETED":
-                            self.print_message("    > Title  ", Fore.WHITE, f"{title} "
+                            self.print_message("     > ", Fore.WHITE, f"{title} "
                                 f"{Fore.YELLOW+Style.BRIGHT}Is Already Completed{Style.RESET_ALL}"
                             )
                             continue
 
                         if status == "WAITING":
-                            start = self.perform_tasks(token, task_id, title, proxy)
+                            start = await self.perform_tasks(token, task_id, title, proxy)
 
                             if start and start.get('state') == "CLAIMABLE":
-                                self.print_message("    > Title  ", Fore.WHITE, f"{title} "
+                                self.print_message("     > ", Fore.WHITE, f"{title} "
                                     f"{Fore.GREEN+Style.BRIGHT}Is Started{Style.RESET_ALL}"
                                 )
 
@@ -548,9 +548,9 @@ class MidasRWA:
                                         )
                                         time.sleep(1)
 
-                                claim = self.claim_tasks(token, task_id, title, proxy)
+                                claim = await self.claim_tasks(token, task_id, title, proxy)
                                 if claim and claim.get('state') == "COMPLETED":
-                                    self.print_message("    > Title  ", Fore.WHITE, f"{title}"
+                                    self.print_message("     > ", Fore.WHITE, f"{title}"
                                         f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
                                         f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                                         f"{Fore.CYAN+Style.BRIGHT} Reward {Style.RESET_ALL}"
@@ -560,9 +560,9 @@ class MidasRWA:
                             time.sleep(1)
                             
                         elif status == "CLAIMABLE":
-                            claim = self.claim_tasks(token, task_id, title, proxy)
+                            claim = await self.claim_tasks(token, task_id, title, proxy)
                             if claim and claim.get('state') == "COMPLETED":
-                                self.print_message("    > Title  ", Fore.WHITE, f"{title}"
+                                self.print_message("     > ", Fore.WHITE, f"{title}"
                                     f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
                                     f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                                     f"{Fore.CYAN+Style.BRIGHT} Reward {Style.RESET_ALL}"
@@ -572,7 +572,7 @@ class MidasRWA:
                             time.sleep(1)
 
 
-    def main(self):
+    async def main(self):
         try:
             with open('query.txt', 'r') as file:
                 queries = [line.strip() for line in file if line.strip()]
@@ -592,7 +592,7 @@ class MidasRWA:
                 )
                 
                 if use_proxy:
-                    self.load_proxies(use_proxy_choice)
+                    await self.load_proxies(use_proxy_choice)
 
                 separator = "=" * 15
                 for query in queries:
@@ -603,7 +603,7 @@ class MidasRWA:
                             f"{Fore.WHITE + Style.BRIGHT} {name} {Style.RESET_ALL}"
                             f"{Fore.CYAN + Style.BRIGHT}]{separator}{Style.RESET_ALL}"
                         )
-                        self.process_query(query, user_id, use_proxy)
+                        await self.process_query(query, user_id, use_proxy)
                         time.sleep(3)
 
                 self.log(f"{Fore.CYAN + Style.BRIGHT}={Style.RESET_ALL}"*50)
@@ -623,12 +623,16 @@ class MidasRWA:
                     time.sleep(1)
                     seconds -= 1
 
-        except KeyboardInterrupt:
-            self.log(f"{Fore.RED + Style.BRIGHT}[ EXIT ] Midas RWA - BOT.{Style.RESET_ALL}                                      ")
-            return
         except Exception as e:
-            self.log(f"{Fore.RED + Style.BRIGHT}An error occurred: {e}{Style.RESET_ALL}")
+            self.log(f"{Fore.RED+Style.BRIGHT}Error: {e}{Style.RESET_ALL}")
 
 if __name__ == "__main__":
-    bot = MidasRWA()
-    bot.main()
+    try:
+        bot = MidasRWA()
+        asyncio.run(bot.main())
+    except KeyboardInterrupt:
+        print(
+            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+            f"{Fore.RED + Style.BRIGHT}[ EXIT ] Midas RWA - BOT{Style.RESET_ALL}                                       "                              
+        )
