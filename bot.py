@@ -441,7 +441,7 @@ class MidasRWA:
                 proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
                 self.log(
                     f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
-                    f"{Fore.GREEN+Style.BRIGHT} Login Success {Style.RESET_ALL}"
+                    f"{Fore.GREEN+Style.BRIGHT} GET Access Token Success {Style.RESET_ALL}"
                 )
 
                 balance = "N/A"
