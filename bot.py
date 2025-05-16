@@ -356,7 +356,12 @@ class MidasRWA:
                     continue
                 return None
             
-    async def process_check_connection(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
+    async def process_check_connection(self, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
+        self.log(
+            f"{Fore.CYAN+Style.BRIGHT}Account   :{Style.RESET_ALL}"
+            f"{Fore.WHITE+Style.BRIGHT} @{username} {Style.RESET_ALL}"
+        )
+
         message = "Checking Connection, Wait..."
         if use_proxy:
             message = "Checking Proxy Connection, Wait..."
@@ -428,8 +433,8 @@ class MidasRWA:
             
         return token
             
-    async def process_accounts(self, query: str, user_id: str, use_proxy: bool, rotate_proxy: bool):
-        is_valid = await self.process_check_connection(user_id, use_proxy, rotate_proxy)
+    async def process_accounts(self, query: str, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
+        is_valid = await self.process_check_connection(user_id, username, use_proxy, rotate_proxy)
         if is_valid:
             token = await self.get_access_token(query, user_id, use_proxy)
             if token:
@@ -717,17 +722,19 @@ class MidasRWA:
                     await self.load_proxies(use_proxy_choice)
 
                 separator = "=" * 15
-                for query in queries:
+                for idx, query in enumerate(queries, start=1):
                     if query:
                         user_id, username = self.load_account_data(query)
 
                         if user_id and username:
                             self.log(
                                 f"{Fore.CYAN + Style.BRIGHT}{separator}[{Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT} @{username} {Style.RESET_ALL}"
+                                f"{Fore.WHITE + Style.BRIGHT} {idx} {Style.RESET_ALL}"
+                                f"{Fore.WHITE + Style.BRIGHT}-{Style.RESET_ALL}"
+                                f"{Fore.WHITE + Style.BRIGHT} {len(queries)} {Style.RESET_ALL}"
                                 f"{Fore.CYAN + Style.BRIGHT}]{separator}{Style.RESET_ALL}"
                             )
-                            await self.process_accounts(query, user_id, use_proxy, rotate_proxy)
+                            await self.process_accounts(query, user_id, username, use_proxy, rotate_proxy)
                             await asyncio.sleep(3)
 
                 self.log(f"{Fore.CYAN + Style.BRIGHT}={Style.RESET_ALL}"*50)
