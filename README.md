@@ -6,13 +6,14 @@ Register Here : [MidasRWA](https://t.me/MidasRWA_bot/app?startapp=ref_b6243c03-2
 ## Features
 
   - Auto Get Account Information
-  - Auto Run With [Monosans](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt) Proxy - Choose 1
-  - Auto Run With Private Proxy - Choose 2
-  - Auto Run Without Proxy - Choose 3
+  - Auto Run With [Monosans](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt) Proxy - `Choose 1`
+  - Auto Run With Private Proxy - `Choose 2`
+  - Auto Run Without Proxy - `Choose 3`
+  - Auto Rotate Invalid Proxies - `y` or `n`
   - Auto Claim Daily Check-In
-  - Auto Claim Refferal
-  - Auto Play Tap Tap
-  - Auto Complete Task
+  - Auto Claim Referral Rewards
+  - Auto Play Tap Tap Games
+  - Auto Complete Tasks
   - Multi Accounts
 
 ## Requiremnets
@@ -39,8 +40,8 @@ Register Here : [MidasRWA](https://t.me/MidasRWA_bot/app?startapp=ref_b6243c03-2
 - **query.txt:** You will find the file `query.txt` inside the project directory. Make sure `query.txt` contains data that matches the format expected by the script. Here are examples of file formats:
 
   ```bash
-  query_id=
-  user=
+    your_(query_id= or user=)_1
+    your_(query_id= or user=)_2
   ```
 
 - **proxy.txt:** You will find the file `proxy.txt` inside the project directory. Make sure `proxy.txt` contains data that matches the format expected by the script. Here are examples of file formats:

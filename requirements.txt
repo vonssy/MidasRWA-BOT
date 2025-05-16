@@ -1,4 +1,4 @@
-curl-cffi
 fake-useragent
+curl-cffi
 colorama
 pytz
