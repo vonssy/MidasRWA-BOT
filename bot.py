@@ -148,15 +148,6 @@ class MidasRWA:
 
         return choose, rotate
     
-    async def check_connection(self, proxy=None):
-        url = "https://prod-tg-app.midas.app"
-        try:
-            response = await asyncio.to_thread(requests.get, url=url, headers={}, proxy=proxy, timeout=30, impersonate="chrome110")
-            response.raise_for_status()
-            return True
-        except Exception as e:
-            return None
-    
     async def user_login(self, query: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/auth/register"
         data = json.dumps({"initData":query, "source":self.ref_code})
@@ -165,6 +156,7 @@ class MidasRWA:
             "Content-Length": str(len(data)),
             "Content-Type": "application/json"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxy=proxy, timeout=60, impersonate="chrome110")
@@ -182,6 +174,7 @@ class MidasRWA:
             **self.headers,
             "Authorization": f"Bearer {token}"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -200,6 +193,7 @@ class MidasRWA:
             "Authorization": f"Bearer {token}",
             "Content-Length": "0"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.patch, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -217,6 +211,7 @@ class MidasRWA:
             **self.headers,
             "Authorization": f"Bearer {token}"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -235,6 +230,7 @@ class MidasRWA:
             "Authorization": f"Bearer {token}",
             "Content-Length": "0"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -252,6 +248,7 @@ class MidasRWA:
             **self.headers,
             "Authorization": f"Bearer {token}"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -270,6 +267,7 @@ class MidasRWA:
             "Authorization": f"Bearer {token}",
             "Content-Length": "0"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -288,6 +286,7 @@ class MidasRWA:
             "Authorization": f"Bearer {token}",
             "Content-Length": "0"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -307,6 +306,7 @@ class MidasRWA:
             **self.headers,
             "Authorization": f"Bearer {token}"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -325,6 +325,7 @@ class MidasRWA:
             "Authorization": f"Bearer {token}",
             "Content-Length": "0"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -345,6 +346,7 @@ class MidasRWA:
             "Authorization": f"Bearer {token}",
             "Content-Length": "0"
         }
+        await asyncio.sleep(3)
         for attempt in range(retries):
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
@@ -356,15 +358,15 @@ class MidasRWA:
                     continue
                 return None
             
-    async def process_check_connection(self, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
+    async def process_user_login(self, query: str, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
         self.log(
             f"{Fore.CYAN+Style.BRIGHT}Account   :{Style.RESET_ALL}"
             f"{Fore.WHITE+Style.BRIGHT} @{username} {Style.RESET_ALL}"
         )
 
-        message = "Checking Connection, Wait..."
+        message = "Try to Login, Wait..."
         if use_proxy:
-            message = "Checking Proxy Connection, Wait..."
+            message = "Try to Login With Proxy, Wait..."
 
         print(
             f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
@@ -377,10 +379,10 @@ class MidasRWA:
         proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
 
         if rotate_proxy:
-            is_valid = None
-            while is_valid is None:
-                is_valid = await self.check_connection(proxy)
-                if not is_valid:
+            token = None
+            while token is None:
+                token = await self.user_login(query, proxy)
+                if not token:
                     self.log(
                         f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
                         f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
@@ -399,17 +401,17 @@ class MidasRWA:
                     f"{Fore.GREEN+Style.BRIGHT} 200 OK {Style.RESET_ALL}                  "
                 )
 
-                return True
+                return token
 
-        is_valid = await self.check_connection(proxy)
-        if not is_valid:
+        token = await self.user_login(query, proxy)
+        if not token:
             self.log(
                 f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
                 f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
                 f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                 f"{Fore.RED+Style.BRIGHT} Not 200 OK {Style.RESET_ALL}          "
             )
-            return False
+            return None
         
         self.log(
             f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
@@ -418,261 +420,214 @@ class MidasRWA:
             f"{Fore.GREEN+Style.BRIGHT} 200 OK {Style.RESET_ALL}                  "
         )
 
-        return True
-    
-    async def get_access_token(self, query: str, user_id: str, use_proxy: bool):
-        proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
-        
-        token = await self.user_login(query, proxy)
-        if not token:
-            self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
-                f"{Fore.RED+Style.BRIGHT} GET Access Token Failed {Style.RESET_ALL}"
-            )
-            return None
-            
         return token
             
     async def process_accounts(self, query: str, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
-        is_valid = await self.process_check_connection(user_id, username, use_proxy, rotate_proxy)
-        if is_valid:
-            token = await self.get_access_token(query, user_id, use_proxy)
-            if token:
-                proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
-                    f"{Fore.GREEN+Style.BRIGHT} GET Access Token Success {Style.RESET_ALL}"
-                )
+        token = await self.process_user_login(query, user_id, username, use_proxy, rotate_proxy)
+        if token:
+            proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
+            self.log(
+                f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
+                f"{Fore.GREEN+Style.BRIGHT} GET Access Token Success {Style.RESET_ALL}"
+            )
 
-                balance = "N/A"
-                tickets = "N/A"
+            balance = "N/A"
+            tickets = "N/A"
 
-                user = await self.user_data(token, proxy)
-                if user:
-                    balance = user.get("points", 0)
-                    tickets = user.get("tickets", 0)
-                    first_visit = user.get("isFirstVisit", False)
+            user = await self.user_data(token, proxy)
+            if user:
+                balance = user.get("points", 0)
+                tickets = user.get("tickets", 0)
+                first_visit = user.get("isFirstVisit", False)
 
-                    if first_visit:
-                        await self.user_visited(token, proxy)
+                if first_visit:
+                    await self.user_visited(token, proxy)
 
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Balance   :{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {balance} GM {Style.RESET_ALL}"
-                )
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Tickets   :{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {tickets} Tap {Style.RESET_ALL}"
-                )
+            self.log(
+                f"{Fore.CYAN+Style.BRIGHT}Balance   :{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {balance} GM {Style.RESET_ALL}"
+            )
+            self.log(
+                f"{Fore.CYAN+Style.BRIGHT}Tickets   :{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {tickets} Tap {Style.RESET_ALL}"
+            )
 
-                checkin = await self.daily_checkin(token, proxy)
-                if checkin:
-                    streak_days = checkin.get("streakDaysCount", 0)
-                    is_claimable = checkin.get("claimable", False)
+            checkin = await self.daily_checkin(token, proxy)
+            if checkin:
+                streak_days = checkin.get("streakDaysCount", 0)
+                is_claimable = checkin.get("claimable", False)
 
-                    if is_claimable:
-                        claim = await self.claim_checkin(token, proxy)
-                        if claim:
-                            checkin_balance_reward = claim.get("nextRewards", {}).get("points", 0)
-                            checkin_tickets_reward = claim.get("nextRewards", {}).get("tickets", 0)
+                if is_claimable:
+                    claim = await self.claim_checkin(token, proxy)
+                    if claim:
+                        checkin_balance_reward = claim.get("nextRewards", {}).get("points", 0)
+                        checkin_tickets_reward = claim.get("nextRewards", {}).get("tickets", 0)
 
-                            self.log(
-                                f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT}Claimed Successfully{Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
-                                f"{Fore.CYAN+Style.BRIGHT}Reward:{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {checkin_balance_reward} GM {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {checkin_tickets_reward} Tap {Style.RESET_ALL}"
-                            )
-                        else:
-                            self.log(
-                                f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT}Not Claimed{Style.RESET_ALL}"
-                            )
+                        self.log(
+                            f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT}Claimed Successfully{Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT}Reward:{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {checkin_balance_reward} GM {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {checkin_tickets_reward} Tap {Style.RESET_ALL}"
+                        )
                     else:
                         self.log(
                             f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
                             f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT}Already Claimed{Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT}Not Claimed{Style.RESET_ALL}"
                         )
                 else:
                     self.log(
                         f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} GET Streak Status Failed {Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT}Already Claimed{Style.RESET_ALL}"
                     )
+            else:
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Streak Status Failed {Style.RESET_ALL}"
+                )
 
-                refferal = await self.refferal_status(token, proxy)
-                if refferal:
-                    can_claim = refferal.get("canClaim", False)
+            refferal = await self.refferal_status(token, proxy)
+            if refferal:
+                can_claim = refferal.get("canClaim", False)
 
-                    if can_claim:
-                        claim = await self.claim_refferal(token, proxy)
-                        if claim:
-                            ref_balance_reward = claim.get("totalPoints", 0)
-                            ref_tickets_reward = claim.get("totalTickets", 0)
+                if can_claim:
+                    claim = await self.claim_refferal(token, proxy)
+                    if claim:
+                        ref_balance_reward = claim.get("totalPoints", 0)
+                        ref_tickets_reward = claim.get("totalTickets", 0)
 
-                            self.log(
-                                f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT} Claimed Successfully {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT}{ref_balance_reward} GM{Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT} | {Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT}{ref_tickets_reward} Tap{Style.RESET_ALL}"
-                            )
-                        else:
-                            self.log(
-                                f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT} Reward Not Claimed {Style.RESET_ALL}"
-                            )
-
+                        self.log(
+                            f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT} Claimed Successfully {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT}{ref_balance_reward} GM{Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT} | {Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT}{ref_tickets_reward} Tap{Style.RESET_ALL}"
+                        )
                     else:
                         self.log(
                             f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT} No Available Reward {Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT} Reward Not Claimed {Style.RESET_ALL}"
                         )
+
                 else:
                     self.log(
                         f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} GET Reward Data Failed {Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT} No Available Reward {Style.RESET_ALL}"
                     )
+            else:
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Reward Data Failed {Style.RESET_ALL}"
+                )
 
-                tickets = 0
-                
-                user = await self.user_data(token, proxy)
-                if user:
-                    tickets = user.get("tickets", 0)
+            tickets = 0
+            
+            user = await self.user_data(token, proxy)
+            if user:
+                tickets = user.get("tickets", 0)
 
-                if tickets > 0:
-                    self.log(
-                        f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
-                        f"{Fore.GREEN+Style.BRIGHT} Available {Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT}{tickets} Chances{Style.RESET_ALL}"
-                    )
+            if tickets > 0:
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
+                    f"{Fore.GREEN+Style.BRIGHT} Available {Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT}{tickets} Chances{Style.RESET_ALL}"
+                )
 
-                    while tickets > 0:
+                while tickets > 0:
 
-                        if tickets == 0:
+                    if tickets == 0:
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
+                            f"{Fore.YELLOW+Style.BRIGHT}No Available Chances Left{Style.RESET_ALL}"
+                        )
+                        break
+
+                    tap_tap = await self.play_game(token, proxy)
+                    if tap_tap: 
+                        tap_reward = tap_tap.get("points", 0)
+                        tickets -= 1
+
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT}Success{Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT}Reward:{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {tap_reward} GM {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {tickets} {Style.RESET_ALL}"
+                            f"{Fore.BLUE+Style.BRIGHT}Chances Left{Style.RESET_ALL}"
+                        )
+                    else:
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
+                            f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT}Failed{Style.RESET_ALL}"
+                        )
+                        break
+
+            else:
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} No Available Chances {Style.RESET_ALL}"
+                )
+
+            tasks = await self.available_tasks(token, proxy)
+            if tasks:
+                self.log(f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}")
+
+                for task in tasks:
+                    if task:
+                        task_id = task.get("id")
+                        title = task.get("name")
+                        reward = task.get("points", 0)
+                        delay = task.get("waitTime", 0)
+                        status = task.get("state")
+
+                        if status == "COMPLETED":
                             self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
-                                f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
-                                f"{Fore.YELLOW+Style.BRIGHT}No Available Chances Left{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}   ● {Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT}{title}{Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT} [Completed] {Style.RESET_ALL}"
                             )
-                            break
+                            continue
 
-                        tap_tap = await self.play_game(token, proxy)
-                        if tap_tap: 
-                            tap_reward = tap_tap.get("points", 0)
-                            tickets -= 1
-
+                        if status == "WAITING":
                             self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
-                                f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT}Success{Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
-                                f"{Fore.CYAN+Style.BRIGHT}Reward:{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {tap_reward} GM {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {tickets} {Style.RESET_ALL}"
-                                f"{Fore.BLUE+Style.BRIGHT}Chances Left{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}   ● {Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT}{title}{Style.RESET_ALL}"
+                                f"{Fore.YELLOW+Style.BRIGHT} [Waiting] {Style.RESET_ALL}"
                             )
-                        else:
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
-                                f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT}Failed{Style.RESET_ALL}"
-                            )
-                            break
 
-                        await asyncio.sleep(1)
-
-                else:
-                    self.log(
-                        f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
-                        f"{Fore.YELLOW+Style.BRIGHT} No Available Chances {Style.RESET_ALL}"
-                    )
-
-                tasks = await self.available_tasks(token, proxy)
-                if tasks:
-                    self.log(f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}")
-
-                    for task in tasks:
-                        if task:
-                            task_id = task.get("id")
-                            title = task.get("name")
-                            reward = task.get("points", 0)
-                            delay = task.get("waitTime", 0)
-                            status = task.get("state")
-
-                            if status == "COMPLETED":
+                            start = await self.perform_tasks(token, task_id, proxy)
+                            if start and start.get("state") == "CLAIMABLE":
                                 self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}   ● {Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT}{title}{Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT} [Completed] {Style.RESET_ALL}"
-                                )
-                                continue
-
-                            if status == "WAITING":
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}   ● {Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT}{title}{Style.RESET_ALL}"
-                                    f"{Fore.YELLOW+Style.BRIGHT} [Waiting] {Style.RESET_ALL}"
+                                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
+                                    f"{Fore.CYAN+Style.BRIGHT}Start Status:{Style.RESET_ALL}"
+                                    f"{Fore.GREEN+Style.BRIGHT} Success {Style.RESET_ALL}"
                                 )
 
-                                start = await self.perform_tasks(token, task_id, proxy)
-                                if start and start.get("state") == "CLAIMABLE":
-                                    self.log(
+                                for remaining in range(delay, 0, -1):
+                                    print(
+                                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
                                         f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                        f"{Fore.CYAN+Style.BRIGHT}Start Status:{Style.RESET_ALL}"
-                                        f"{Fore.GREEN+Style.BRIGHT} Success {Style.RESET_ALL}"
+                                        f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
+                                        f"{Fore.YELLOW+Style.BRIGHT} Wait For {Style.RESET_ALL}"
+                                        f"{Fore.WHITE + Style.BRIGHT}{remaining}{Style.RESET_ALL}"
+                                        f"{Fore.YELLOW + Style.BRIGHT} Seconds to Claim Reward... {Style.RESET_ALL}",
+                                        end="\r",
+                                        flush=True
                                     )
-
-                                    for remaining in range(delay, 0, -1):
-                                        print(
-                                            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                                            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                                            f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                            f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
-                                            f"{Fore.YELLOW+Style.BRIGHT} Wait For {Style.RESET_ALL}"
-                                            f"{Fore.WHITE + Style.BRIGHT}{remaining}{Style.RESET_ALL}"
-                                            f"{Fore.YELLOW + Style.BRIGHT} Seconds to Claim Reward... {Style.RESET_ALL}",
-                                            end="\r",
-                                            flush=True
-                                        )
-                                        await asyncio.sleep(1)
-
-                                    claim = await self.claim_tasks(token, task_id, proxy)
-                                    if claim and claim.get("state") == "COMPLETED":
-                                        self.log(
-                                            f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                            f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
-                                            f"{Fore.GREEN+Style.BRIGHT} Success {Style.RESET_ALL}"
-                                            f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                            f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
-                                            f"{Fore.WHITE+Style.BRIGHT}{reward} GM{Style.RESET_ALL}                                "
-                                        )
-                                    else:
-                                        self.log(
-                                            f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                            f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
-                                            f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}                                        "
-                                        )
-                                else:
-                                    self.log(
-                                        f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                        f"{Fore.CYAN+Style.BRIGHT}Start Status:{Style.RESET_ALL}"
-                                        f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
-                                    )
-                                
-                            elif status == "CLAIMABLE":
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}   ● {Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT}{title}{Style.RESET_ALL}"
-                                    f"{Fore.BLUE+Style.BRIGHT} [Claimable] {Style.RESET_ALL}"
-                                )
+                                    await asyncio.sleep(1)
 
                                 claim = await self.claim_tasks(token, task_id, proxy)
                                 if claim and claim.get("state") == "COMPLETED":
@@ -682,22 +637,50 @@ class MidasRWA:
                                         f"{Fore.GREEN+Style.BRIGHT} Success {Style.RESET_ALL}"
                                         f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
                                         f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
-                                        f"{Fore.WHITE+Style.BRIGHT}{reward} GM{Style.RESET_ALL}"
+                                        f"{Fore.WHITE+Style.BRIGHT}{reward} GM{Style.RESET_ALL}                                "
                                     )
                                 else:
                                     self.log(
                                         f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
                                         f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
-                                        f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
+                                        f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}                                        "
                                     )
+                            else:
+                                self.log(
+                                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
+                                    f"{Fore.CYAN+Style.BRIGHT}Start Status:{Style.RESET_ALL}"
+                                    f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
+                                )
+                            
+                        elif status == "CLAIMABLE":
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}   ● {Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT}{title}{Style.RESET_ALL}"
+                                f"{Fore.BLUE+Style.BRIGHT} [Claimable] {Style.RESET_ALL}"
+                            )
 
-                            await asyncio.sleep(1)
+                            claim = await self.claim_tasks(token, task_id, proxy)
+                            if claim and claim.get("state") == "COMPLETED":
+                                self.log(
+                                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
+                                    f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
+                                    f"{Fore.GREEN+Style.BRIGHT} Success {Style.RESET_ALL}"
+                                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                                    f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
+                                    f"{Fore.WHITE+Style.BRIGHT}{reward} GM{Style.RESET_ALL}"
+                                )
+                            else:
+                                self.log(
+                                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
+                                    f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
+                                    f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
+                                )
 
-                else:
-                    self.log(
-                        f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} GET Lists Data Failed {Style.RESET_ALL}"
-                    )
+            else:
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Lists Data Failed {Style.RESET_ALL}"
+                )
 
     async def main(self):
         try:
