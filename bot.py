@@ -17,13 +17,16 @@ class MidasRWA:
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
-            "User-Agent": FakeUserAgent().random
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0"
         }
         self.BASE_API = "https://api-tg-app.midas.app"
         self.ref_code = "ref_b6243c03-25ae-43f0-9667-5defd6c43b9b" # U can change it with yours.
         self.proxies = []
         self.proxy_index = 0
         self.account_proxies = {}
+        self.query_id = {}
+        self.username = {}
+        self.tokens = {}
 
     def clear_terminal(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -54,18 +57,18 @@ class MidasRWA:
         filename = "proxy.txt"
         try:
             if use_proxy_choice == 1:
-                response = await asyncio.to_thread(requests.get, "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt")
+                response = await asyncio.to_thread(requests.get, "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text")
                 response.raise_for_status()
                 content = response.text
                 with open(filename, 'w') as f:
                     f.write(content)
-                self.proxies = content.splitlines()
+                self.proxies = [line.strip() for line in content.splitlines() if line.strip()]
             else:
                 if not os.path.exists(filename):
                     self.log(f"{Fore.RED + Style.BRIGHT}File {filename} Not Found.{Style.RESET_ALL}")
                     return
                 with open(filename, 'r') as f:
-                    self.proxies = f.read().splitlines()
+                    self.proxies = [line.strip() for line in f.read().splitlines() if line.strip()]
             
             if not self.proxies:
                 self.log(f"{Fore.RED + Style.BRIGHT}No Proxies Found.{Style.RESET_ALL}")
@@ -103,32 +106,32 @@ class MidasRWA:
         self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
         return proxy
     
-    def load_account_data(self, query: str):
-        account = parse_qs(query).get('user', [None])[0]
-        if account:
+    def extract_query_data(self, query: str):
+        try:
+            account = parse_qs(query).get('user', [None])[0]
             account_data = json.loads(unquote(account))
             user_id = account_data.get("id", None)
             username = account_data.get("username", "Unknown")
 
             return user_id, username
-        else:
-            raise ValueError("query_id invalid")
+        except Exception as e:
+            return None, None
         
     def print_question(self):
         while True:
             try:
-                print(f"{Fore.WHITE + Style.BRIGHT}1. Run With Monosans Proxy{Style.RESET_ALL}")
+                print(f"{Fore.WHITE + Style.BRIGHT}1. Run With Proxyscrape Free Proxy{Style.RESET_ALL}")
                 print(f"{Fore.WHITE + Style.BRIGHT}2. Run With Private Proxy{Style.RESET_ALL}")
                 print(f"{Fore.WHITE + Style.BRIGHT}3. Run Without Proxy{Style.RESET_ALL}")
                 choose = int(input(f"{Fore.BLUE + Style.BRIGHT}Choose [1/2/3] -> {Style.RESET_ALL}").strip())
 
                 if choose in [1, 2, 3]:
                     proxy_type = (
-                        "Run With Monosans Proxy" if choose == 1 else 
-                        "Run With Private Proxy" if choose == 2 else 
-                        "Run Without Proxy"
+                        "With Proxyscrape Free" if choose == 1 else 
+                        "With Private" if choose == 2 else 
+                        "Without"
                     )
-                    print(f"{Fore.GREEN + Style.BRIGHT}{proxy_type} Selected.{Style.RESET_ALL}")
+                    print(f"{Fore.GREEN + Style.BRIGHT}Run {proxy_type} Proxy Selected.{Style.RESET_ALL}")
                     break
                 else:
                     print(f"{Fore.RED + Style.BRIGHT}Please enter either 1, 2 or 3.{Style.RESET_ALL}")
@@ -148,9 +151,9 @@ class MidasRWA:
 
         return choose, rotate
     
-    async def user_login(self, query: str, proxy=None, retries=5):
+    async def user_login(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/auth/register"
-        data = json.dumps({"initData":query, "source":self.ref_code})
+        data = json.dumps({"initData":self.query_id[user_id], "source":self.ref_code})
         headers = {
             **self.headers,
             "Content-Length": str(len(data)),
@@ -159,137 +162,186 @@ class MidasRWA:
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxy=proxy, timeout=60, impersonate="chrome110")
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)
                 response.raise_for_status()
                 return response.text
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Access Token Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
+                
+        return None
 
-    async def user_data(self, token: str, proxy=None, retries=5):
+    async def user_data(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/user"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {self.tokens[user_id]}"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Error     :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Balance & Tickets Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
+                
+        return None
             
-    async def user_visited(self, token: str, proxy=None, retries=5):
+    async def user_visited(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/user/visited"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {self.tokens[user_id]}",
             "Content-Length": "0"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.patch, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.patch, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Error     :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Visited Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
                 
-    async def daily_checkin(self, token: str, proxy=None, retries=5):
+        return None
+                
+    async def daily_checkin(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/streak"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {self.tokens[user_id]}",
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Status Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
                 
-    async def claim_checkin(self, token: str, proxy=None, retries=5):
+        return None
+                
+    async def claim_checkin(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/streak"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {self.tokens[user_id]}",
             "Content-Length": "0"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Not Claimed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
                 
-    async def refferal_status(self, token: str, proxy=None, retries=5):
+        return None
+                
+    async def refferal_status(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/referral/status"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {self.tokens[user_id]}"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Claimable Reward Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
                 
-    async def claim_refferal(self, token: str, proxy=None, retries=5):
+        return None
+                
+    async def claim_refferal(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/referral/claim"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {self.tokens[user_id]}",
             "Content-Length": "0"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Reward Not Claimed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
+                
+        return None
             
-    async def play_game(self, token: str, proxy=None, retries=5):
+    async def play_game(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/game/play"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {self.tokens[user_id]}",
             "Content-Length": "0"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 if response.status_code == 400:
                     return None
                 response.raise_for_status()
@@ -298,37 +350,52 @@ class MidasRWA:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
+                    f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT}Failed{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT}{str(e)}{Style.RESET_ALL}"
+                )
+                
+        return None
             
-    async def available_tasks(self, token: str, proxy=None, retries=5):
+    async def available_tasks(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/tasks/available"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {self.tokens[user_id]}"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} GET Lists Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
+                
+        return None
             
-    async def perform_tasks(self, token: str, task_id: str, proxy=None, retries=5):
+    async def perform_tasks(self, user_id: str, task_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/tasks/start/{task_id}"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {self.tokens[user_id]}",
             "Content-Length": "0"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)
                 if response.status_code == 400:
                     return None
                 response.raise_for_status()
@@ -337,128 +404,100 @@ class MidasRWA:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
+                    f"{Fore.CYAN+Style.BRIGHT}Start Status:{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+                )
+                
+        return None
             
-    async def claim_tasks(self, token: str, task_id: str, proxy=None, retries=5):
+    async def claim_tasks(self, user_id: str, task_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/tasks/claim/{task_id}"
         headers = {
             **self.headers,
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {self.tokens[user_id]}",
             "Content-Length": "0"
         }
         await asyncio.sleep(3)
         for attempt in range(retries):
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110")    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
-            
-    async def process_user_login(self, query: str, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
-        self.log(
-            f"{Fore.CYAN+Style.BRIGHT}Account   :{Style.RESET_ALL}"
-            f"{Fore.WHITE+Style.BRIGHT} @{username} {Style.RESET_ALL}"
-        )
-
-        message = "Try to Login, Wait..."
-        if use_proxy:
-            message = "Try to Login With Proxy, Wait..."
-
-        print(
-            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-            f"{Fore.YELLOW + Style.BRIGHT}{message}{Style.RESET_ALL}",
-            end="\r",
-            flush=True
-        )
-
-        proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
-
-        if rotate_proxy:
-            token = None
-            while token is None:
-                token = await self.user_login(query, proxy)
-                if not token:
-                    self.log(
-                        f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} Not 200 OK, {Style.RESET_ALL}"
-                        f"{Fore.YELLOW+Style.BRIGHT}Rotating Proxy...{Style.RESET_ALL}"
-                    )
-                    proxy = self.rotate_proxy_for_account(user_id) if use_proxy else None
-                    await asyncio.sleep(5)
-                    continue
-
                 self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
+                    f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
                     f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                    f"{Fore.GREEN+Style.BRIGHT} 200 OK {Style.RESET_ALL}                  "
+                    f"{Fore.YELLOW+Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
                 )
+                
+        return None
+            
+    async def process_user_login(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
+        while True:
+            proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
 
-                return token
-
-        token = await self.user_login(query, proxy)
-        if not token:
             self.log(
                 f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
                 f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
-                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                f"{Fore.RED+Style.BRIGHT} Not 200 OK {Style.RESET_ALL}          "
             )
-            return None
-        
-        self.log(
-            f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
-            f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
-            f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-            f"{Fore.GREEN+Style.BRIGHT} 200 OK {Style.RESET_ALL}                  "
-        )
 
-        return token
+            token = await self.user_login(user_id, proxy)
+            if token:
+                self.tokens[user_id] = token
+
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
+                    f"{Fore.GREEN+Style.BRIGHT} GET Access Token Success {Style.RESET_ALL}"
+                )
+                return True
             
-    async def process_accounts(self, query: str, user_id: str, username: str, use_proxy: bool, rotate_proxy: bool):
-        token = await self.process_user_login(query, user_id, username, use_proxy, rotate_proxy)
-        if token:
+            if rotate_proxy:
+                proxy = self.rotate_proxy_for_account(user_id)
+                await asyncio.sleep(5)
+                continue
+
+            return False
+            
+    async def process_accounts(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
+        logined = await self.process_user_login(user_id, use_proxy, rotate_proxy)
+        if logined:
             proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
-            self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
-                f"{Fore.GREEN+Style.BRIGHT} GET Access Token Success {Style.RESET_ALL}"
-            )
+            
 
-            balance = "N/A"
-            tickets = "N/A"
-
-            user = await self.user_data(token, proxy)
+            user = await self.user_data(user_id, proxy)
             if user:
                 balance = user.get("points", 0)
                 tickets = user.get("tickets", 0)
                 first_visit = user.get("isFirstVisit", False)
 
                 if first_visit:
-                    await self.user_visited(token, proxy)
+                    await self.user_visited(user_id, proxy)
 
-            self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Balance   :{Style.RESET_ALL}"
-                f"{Fore.WHITE+Style.BRIGHT} {balance} GM {Style.RESET_ALL}"
-            )
-            self.log(
-                f"{Fore.CYAN+Style.BRIGHT}Tickets   :{Style.RESET_ALL}"
-                f"{Fore.WHITE+Style.BRIGHT} {tickets} Tap {Style.RESET_ALL}"
-            )
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Balance   :{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {balance} GM {Style.RESET_ALL}"
+                )
+                self.log(
+                    f"{Fore.CYAN+Style.BRIGHT}Tickets   :{Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {tickets} Tap {Style.RESET_ALL}"
+                )
 
-            checkin = await self.daily_checkin(token, proxy)
+            checkin = await self.daily_checkin(user_id, proxy)
             if checkin:
                 streak_days = checkin.get("streakDaysCount", 0)
                 is_claimable = checkin.get("claimable", False)
 
                 if is_claimable:
-                    claim = await self.claim_checkin(token, proxy)
+                    claim = await self.claim_checkin(user_id, proxy)
                     if claim:
                         checkin_balance_reward = claim.get("nextRewards", {}).get("points", 0)
                         checkin_tickets_reward = claim.get("nextRewards", {}).get("tickets", 0)
@@ -473,30 +512,20 @@ class MidasRWA:
                             f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
                             f"{Fore.WHITE+Style.BRIGHT} {checkin_tickets_reward} Tap {Style.RESET_ALL}"
                         )
-                    else:
-                        self.log(
-                            f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
-                            f"{Fore.RED+Style.BRIGHT}Not Claimed{Style.RESET_ALL}"
-                        )
+
                 else:
                     self.log(
                         f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
                         f"{Fore.WHITE+Style.BRIGHT} Day {streak_days} {Style.RESET_ALL}"
                         f"{Fore.YELLOW+Style.BRIGHT}Already Claimed{Style.RESET_ALL}"
                     )
-            else:
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Check-In  :{Style.RESET_ALL}"
-                    f"{Fore.RED+Style.BRIGHT} GET Streak Status Failed {Style.RESET_ALL}"
-                )
 
-            refferal = await self.refferal_status(token, proxy)
+            refferal = await self.refferal_status(user_id, proxy)
             if refferal:
                 can_claim = refferal.get("canClaim", False)
 
                 if can_claim:
-                    claim = await self.claim_refferal(token, proxy)
+                    claim = await self.claim_refferal(user_id, proxy)
                     if claim:
                         ref_balance_reward = claim.get("totalPoints", 0)
                         ref_tickets_reward = claim.get("totalTickets", 0)
@@ -510,77 +539,51 @@ class MidasRWA:
                             f"{Fore.MAGENTA+Style.BRIGHT} | {Style.RESET_ALL}"
                             f"{Fore.WHITE+Style.BRIGHT}{ref_tickets_reward} Tap{Style.RESET_ALL}"
                         )
-                    else:
-                        self.log(
-                            f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
-                            f"{Fore.RED+Style.BRIGHT} Reward Not Claimed {Style.RESET_ALL}"
-                        )
 
                 else:
                     self.log(
                         f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
                         f"{Fore.YELLOW+Style.BRIGHT} No Available Reward {Style.RESET_ALL}"
                     )
-            else:
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Referral  :{Style.RESET_ALL}"
-                    f"{Fore.RED+Style.BRIGHT} GET Reward Data Failed {Style.RESET_ALL}"
-                )
-
-            tickets = 0
             
-            user = await self.user_data(token, proxy)
+            user = await self.user_data(user_id, proxy)
             if user:
                 tickets = user.get("tickets", 0)
 
-            if tickets > 0:
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
-                    f"{Fore.GREEN+Style.BRIGHT} Available {Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT}{tickets} Chances{Style.RESET_ALL}"
-                )
+                if tickets > 0:
+                    self.log(
+                        f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
+                        f"{Fore.GREEN+Style.BRIGHT} Available {Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT}{tickets} Chances{Style.RESET_ALL}"
+                    )
 
-                while tickets > 0:
+                    while tickets > 0:
+                        tap_tap = await self.play_game(user_id, proxy)
+                        if tap_tap: 
+                            tap_reward = tap_tap.get("points", 0)
+                            tickets -= 1
 
-                    if tickets == 0:
-                        self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
-                            f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT}No Available Chances Left{Style.RESET_ALL}"
-                        )
-                        break
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
+                                f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT}Success{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
+                                f"{Fore.CYAN+Style.BRIGHT}Reward:{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {tap_reward} GM {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {tickets} {Style.RESET_ALL}"
+                                f"{Fore.BLUE+Style.BRIGHT}Chances Left{Style.RESET_ALL}"
+                            )
+                        else:
+                            break
 
-                    tap_tap = await self.play_game(token, proxy)
-                    if tap_tap: 
-                        tap_reward = tap_tap.get("points", 0)
-                        tickets -= 1
+                else:
+                    self.log(
+                        f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT} No Available Chances {Style.RESET_ALL}"
+                    )
 
-                        self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
-                            f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
-                            f"{Fore.GREEN+Style.BRIGHT}Success{Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT} - {Style.RESET_ALL}"
-                            f"{Fore.CYAN+Style.BRIGHT}Reward:{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} {tap_reward} GM {Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} {tickets} {Style.RESET_ALL}"
-                            f"{Fore.BLUE+Style.BRIGHT}Chances Left{Style.RESET_ALL}"
-                        )
-                    else:
-                        self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}   ●{Style.RESET_ALL}"
-                            f"{Fore.CYAN+Style.BRIGHT} Tap-Tap {Style.RESET_ALL}"
-                            f"{Fore.RED+Style.BRIGHT}Failed{Style.RESET_ALL}"
-                        )
-                        break
-
-            else:
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Tap Games :{Style.RESET_ALL}"
-                    f"{Fore.YELLOW+Style.BRIGHT} No Available Chances {Style.RESET_ALL}"
-                )
-
-            tasks = await self.available_tasks(token, proxy)
+            tasks = await self.available_tasks(user_id, proxy)
             if tasks:
                 self.log(f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}")
 
@@ -607,7 +610,7 @@ class MidasRWA:
                                 f"{Fore.YELLOW+Style.BRIGHT} [Waiting] {Style.RESET_ALL}"
                             )
 
-                            start = await self.perform_tasks(token, task_id, proxy)
+                            start = await self.perform_tasks(user_id, task_id, proxy)
                             if start and start.get("state") == "CLAIMABLE":
                                 self.log(
                                     f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
@@ -629,7 +632,7 @@ class MidasRWA:
                                     )
                                     await asyncio.sleep(1)
 
-                                claim = await self.claim_tasks(token, task_id, proxy)
+                                claim = await self.claim_tasks(user_id, task_id, proxy)
                                 if claim and claim.get("state") == "COMPLETED":
                                     self.log(
                                         f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
@@ -639,18 +642,7 @@ class MidasRWA:
                                         f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
                                         f"{Fore.WHITE+Style.BRIGHT}{reward} GM{Style.RESET_ALL}                                "
                                     )
-                                else:
-                                    self.log(
-                                        f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                        f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
-                                        f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}                                        "
-                                    )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                    f"{Fore.CYAN+Style.BRIGHT}Start Status:{Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
-                                )
+
                             
                         elif status == "CLAIMABLE":
                             self.log(
@@ -659,7 +651,7 @@ class MidasRWA:
                                 f"{Fore.BLUE+Style.BRIGHT} [Claimable] {Style.RESET_ALL}"
                             )
 
-                            claim = await self.claim_tasks(token, task_id, proxy)
+                            claim = await self.claim_tasks(user_id, task_id, proxy)
                             if claim and claim.get("state") == "COMPLETED":
                                 self.log(
                                     f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
@@ -669,18 +661,6 @@ class MidasRWA:
                                     f"{Fore.CYAN+Style.BRIGHT} Reward: {Style.RESET_ALL}"
                                     f"{Fore.WHITE+Style.BRIGHT}{reward} GM{Style.RESET_ALL}"
                                 )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}      > {Style.RESET_ALL}"
-                                    f"{Fore.CYAN+Style.BRIGHT}Claim Status:{Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT} Failed {Style.RESET_ALL}"
-                                )
-
-            else:
-                self.log(
-                    f"{Fore.CYAN+Style.BRIGHT}Task Lists:{Style.RESET_ALL}"
-                    f"{Fore.RED+Style.BRIGHT} GET Lists Data Failed {Style.RESET_ALL}"
-                )
 
     async def main(self):
         try:
@@ -704,21 +684,35 @@ class MidasRWA:
                 if use_proxy:
                     await self.load_proxies(use_proxy_choice)
 
-                separator = "=" * 15
+                separator = "=" * 20
                 for idx, query in enumerate(queries, start=1):
                     if query:
-                        user_id, username = self.load_account_data(query)
+                        user_id, username = self.extract_query_data(query)
+                        self.log(
+                            f"{Fore.CYAN + Style.BRIGHT}{separator}[{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {idx} {Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT}-{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {len(queries)} {Style.RESET_ALL}"
+                            f"{Fore.CYAN + Style.BRIGHT}]{separator}{Style.RESET_ALL}"
+                        )
 
-                        if user_id and username:
+                        if not user_id or not username:
                             self.log(
-                                f"{Fore.CYAN + Style.BRIGHT}{separator}[{Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT} {idx} {Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT}-{Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT} {len(queries)} {Style.RESET_ALL}"
-                                f"{Fore.CYAN + Style.BRIGHT}]{separator}{Style.RESET_ALL}"
+                                f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT} Invalid Query Data {Style.RESET_ALL}"
                             )
-                            await self.process_accounts(query, user_id, username, use_proxy, rotate_proxy)
-                            await asyncio.sleep(3)
+                            continue
+
+                        self.log(
+                            f"{Fore.CYAN+Style.BRIGHT}Username  :{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {username} {Style.RESET_ALL}"
+                        )
+
+                        self.query_id[user_id] = query
+                        self.username[user_id] = username
+                        
+                        await self.process_accounts(user_id, use_proxy, rotate_proxy)
+                        await asyncio.sleep(3)
 
                 self.log(f"{Fore.CYAN + Style.BRIGHT}={Style.RESET_ALL}"*50)
 
