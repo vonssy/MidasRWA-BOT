@@ -9,18 +9,9 @@ wib = pytz.timezone('Asia/Jakarta')
 
 class MidasRWA:
     def __init__(self) -> None:
-        self.headers = {
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Origin": "https://prod-tg-app.midas.app",
-            "Referer": "https://prod-tg-app.midas.app/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0"
-        }
         self.BASE_API = "https://api-tg-app.midas.app"
-        self.ref_code = "ref_b6243c03-25ae-43f0-9667-5defd6c43b9b" # U can change it with yours.
+        self.REF_CODE = "ref_b6243c03-25ae-43f0-9667-5defd6c43b9b" # U can change it with yours.
+        self.HEADERS = {}
         self.proxies = []
         self.proxy_index = 0
         self.account_proxies = {}
@@ -41,7 +32,7 @@ class MidasRWA:
     def welcome(self):
         print(
             f"""
-        {Fore.GREEN + Style.BRIGHT}Auto Claim {Fore.BLUE + Style.BRIGHT}Midas RWA - BOT
+        {Fore.GREEN + Style.BRIGHT}Midas RWA {Fore.BLUE + Style.BRIGHT}Auto BOT
             """
             f"""
         {Fore.GREEN + Style.BRIGHT}Rey? {Fore.YELLOW + Style.BRIGHT}<INI WATERMARK>
@@ -57,7 +48,7 @@ class MidasRWA:
         filename = "proxy.txt"
         try:
             if use_proxy_choice == 1:
-                response = await asyncio.to_thread(requests.get, "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text")
+                response = await asyncio.to_thread(requests.get, "https://raw.githubusercontent.com/monosans/proxy-list/refs/heads/main/proxies/all.txt")
                 response.raise_for_status()
                 content = response.text
                 with open(filename, 'w') as f:
@@ -89,20 +80,20 @@ class MidasRWA:
             return proxies
         return f"http://{proxies}"
 
-    def get_next_proxy_for_account(self, user_id):
-        if user_id not in self.account_proxies:
+    def get_next_proxy_for_account(self, account):
+        if account not in self.account_proxies:
             if not self.proxies:
                 return None
             proxy = self.check_proxy_schemes(self.proxies[self.proxy_index])
-            self.account_proxies[user_id] = proxy
+            self.account_proxies[account] = proxy
             self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
-        return self.account_proxies[user_id]
+        return self.account_proxies[account]
 
-    def rotate_proxy_for_account(self, user_id):
+    def rotate_proxy_for_account(self, account):
         if not self.proxies:
             return None
         proxy = self.check_proxy_schemes(self.proxies[self.proxy_index])
-        self.account_proxies[user_id] = proxy
+        self.account_proxies[account] = proxy
         self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
         return proxy
     
@@ -151,18 +142,33 @@ class MidasRWA:
 
         return choose, rotate
     
+    async def check_connection(self, proxy=None):
+        url = "https://api.ipify.org?format=json"
+        proxies = {"http":proxy, "https":proxy} if proxy else None
+        try:
+            response = await asyncio.to_thread(requests.get, url=url, proxies=proxies, timeout=30, impersonate="chrome110", verify=False)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            self.log(
+                f"{Fore.CYAN+Style.BRIGHT}Status    :{Style.RESET_ALL}"
+                f"{Fore.RED + Style.BRIGHT} Connection Not 200 OK {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                f"{Fore.YELLOW + Style.BRIGHT} {str(e)} {Style.RESET_ALL}"
+            )
+            return None
+    
     async def user_login(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/auth/register"
-        data = json.dumps({"initData":self.query_id[user_id], "source":self.ref_code})
-        headers = {
-            **self.headers,
-            "Content-Length": str(len(data)),
-            "Content-Type": "application/json"
-        }
+        data = json.dumps({"initData":self.query_id[user_id], "source":self.REF_CODE})
+        headers = self.HEADERS[user_id].copy()
+        headers["Content-Length"] = str(len(data))
+        headers["Content-Type"] = "application/json"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)
                 response.raise_for_status()
                 return response.text
             except Exception as e:
@@ -180,14 +186,13 @@ class MidasRWA:
 
     async def user_data(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/user"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -205,15 +210,14 @@ class MidasRWA:
             
     async def user_visited(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/user/visited"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-            "Content-Length": "0"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
+        headers["Content-Length"] = "0"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.patch, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.patch, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -231,14 +235,13 @@ class MidasRWA:
                 
     async def daily_checkin(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/streak"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -256,15 +259,14 @@ class MidasRWA:
                 
     async def claim_checkin(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/streak"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-            "Content-Length": "0"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
+        headers["Content-Length"] = "0"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -282,14 +284,13 @@ class MidasRWA:
                 
     async def refferal_status(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/referral/status"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -307,15 +308,14 @@ class MidasRWA:
                 
     async def claim_refferal(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/referral/claim"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-            "Content-Length": "0"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
+        headers["Content-Length"] = "0"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -333,15 +333,14 @@ class MidasRWA:
             
     async def play_game(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/game/play"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-            "Content-Length": "0"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
+        headers["Content-Length"] = "0"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 if response.status_code == 400:
                     return None
                 response.raise_for_status()
@@ -362,14 +361,13 @@ class MidasRWA:
             
     async def available_tasks(self, user_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/tasks/available"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.get, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -387,15 +385,14 @@ class MidasRWA:
             
     async def perform_tasks(self, user_id: str, task_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/tasks/start/{task_id}"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-            "Content-Length": "0"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
+        headers["Content-Length"] = "0"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)
                 if response.status_code == 400:
                     return None
                 response.raise_for_status()
@@ -416,15 +413,14 @@ class MidasRWA:
             
     async def claim_tasks(self, user_id: str, task_id: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/api/tasks/claim/{task_id}"
-        headers = {
-            **self.headers,
-            "Authorization": f"Bearer {self.tokens[user_id]}",
-            "Content-Length": "0"
-        }
+        headers = self.HEADERS[user_id].copy()
+        headers["Authorization"] = f"Bearer {self.tokens[user_id]}"
+        headers["Content-Length"] = "0"
         await asyncio.sleep(3)
         for attempt in range(retries):
+            proxies = {"http":proxy, "https":proxy} if proxy else None
             try:
-                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxy=proxy, timeout=60, impersonate="chrome110", verify=False)    
+                response = await asyncio.to_thread(requests.post, url=url, headers=headers, proxies=proxies, timeout=60, impersonate="chrome110", verify=False)    
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
@@ -440,15 +436,30 @@ class MidasRWA:
                 )
                 
         return None
-            
-    async def process_user_login(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
+    
+    async def process_check_connection(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
         while True:
             proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
-
             self.log(
                 f"{Fore.CYAN+Style.BRIGHT}Proxy     :{Style.RESET_ALL}"
                 f"{Fore.WHITE+Style.BRIGHT} {proxy} {Style.RESET_ALL}"
             )
+
+            is_valid = await self.check_connection(proxy)
+            if is_valid:
+                return True
+            
+            if rotate_proxy:
+                proxy = self.rotate_proxy_for_account(user_id)
+                await asyncio.sleep(1)
+                continue
+
+            return False
+            
+    async def process_user_login(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
+        is_valid = await self.process_check_connection(user_id, use_proxy, rotate_proxy)
+        if is_valid:
+            proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None            
 
             token = await self.user_login(user_id, proxy)
             if token:
@@ -460,18 +471,12 @@ class MidasRWA:
                 )
                 return True
             
-            if rotate_proxy:
-                proxy = self.rotate_proxy_for_account(user_id)
-                await asyncio.sleep(5)
-                continue
-
             return False
             
     async def process_accounts(self, user_id: str, use_proxy: bool, rotate_proxy: bool):
         logined = await self.process_user_login(user_id, use_proxy, rotate_proxy)
         if logined:
             proxy = self.get_next_proxy_for_account(user_id) if use_proxy else None
-            
 
             user = await self.user_data(user_id, proxy)
             if user:
@@ -702,6 +707,17 @@ class MidasRWA:
                                 f"{Fore.RED+Style.BRIGHT} Invalid Query Data {Style.RESET_ALL}"
                             )
                             continue
+
+                        self.HEADERS[user_id] = {
+                            "Accept": "application/json, text/plain, */*",
+                            "Accept-Language": "en-US,en;q=0.9",
+                            "Origin": "https://prod-tg-app.midas.app",
+                            "Referer": "https://prod-tg-app.midas.app/",
+                            "Sec-Fetch-Dest": "empty",
+                            "Sec-Fetch-Mode": "cors",
+                            "Sec-Fetch-Site": "same-site",
+                            "User-Agent": FakeUserAgent().random
+                        }
 
                         self.log(
                             f"{Fore.CYAN+Style.BRIGHT}Username  :{Style.RESET_ALL}"
