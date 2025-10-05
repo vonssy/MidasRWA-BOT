@@ -1,2 +1,2 @@
-your_(query_id= or user=)_1
-your_(query_id= or user=)_2
+your_query_data_1
+your_query_data_2
